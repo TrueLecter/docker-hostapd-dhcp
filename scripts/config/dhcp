@@ -1,0 +1,26 @@
+#!/bin/bash
+
+build_dhcp_config () {
+	cat << EOF > $WORKDIR/dhcpd.conf
+authoritative;
+subnet 10.9.0.0 netmask 255.255.240.0 {
+        range 10.9.0.2 10.9.9.254;
+        option broadcast-address 10.9.15.255;
+        option routers 10.9.0.1;
+        option domain-name-servers $DNS_SERVER;
+        default-lease-time 600;
+        max-lease-time 7200;
+EOF
+
+	local host_id=1
+    while read ip_mac; do
+        if [[ "$ip_mac" =~ ^([[:space:]]+)$ ]]; then
+            continue;
+        fi
+        read -r ip mac <<<$(echo "$ip_mac")
+        echo -e "host host$host_id {\n\thardware ethernet $mac;\n\tfixed-address $ip;\n}" >> $WORKDIR/dhcpd.conf
+        host_id=$(($host_id + 1))
+    done < <(printf '%s' "$1")
+
+    echo "}" >> $WORKDIR/dhcpd.conf
+}

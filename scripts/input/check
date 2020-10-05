@@ -1,0 +1,55 @@
+#!/bin/bash
+
+check_config () {
+    warn "Checking parameters is not fully implemented yet"
+
+    if [[ $FREQ_BAND != 2.4 && $FREQ_BAND != 5 ]]; then
+        fatal "Invalid frequency band. Can be 2.4 or 5"
+        exit 1
+    fi
+
+    if [[ $CHANNEL == default ]]; then
+        if [[ $FREQ_BAND == 2.4 ]]; then
+            CHANNEL=1
+        else
+            CHANNEL=36
+        fi
+    fi
+
+    if [[ $FREQ_BAND != 5 && $CHANNEL -gt 14 ]]; then
+	    warn "Channel number is greater than 14, assuming 5GHz frequency band"
+	    FREQ_BAND=5
+	fi
+
+	if ! is_wifi_interface $WLAN; then
+	    fatal "'$WLAN' does not appear to be a WiFi interface"
+	    exit 1
+	fi
+
+	if ! can_be_ap $WLAN; then
+	    fatal "$WLAN does not support AP (master) mode"
+	    exit 1
+	fi
+
+	if [[ ${#SSID} -lt 1 || ${#SSID} -gt 32 ]]; then
+	    fatal "Invalid SSID length ${#SSID} (expected 1..32)"
+	    exit 1
+	fi
+
+	if [[ $USE_PSK -eq 0 ]]; then
+	    if [[ ${#PASSPHRASE} -gt 0 && ${#PASSPHRASE} -lt 8 ]] || [[ ${#PASSPHRASE} -gt 63 ]]; then
+	        fatal "Invalid passphrase length ${#PASSPHRASE} (expected 8..63)"
+	        exit 1
+	    fi
+	elif [[ ${#PASSPHRASE} -gt 0 && ${#PASSPHRASE} -ne 64 ]]; then
+	    fatal "Invalid pre-shared-key length ${#PASSPHRASE} (expected 64)"
+	    exit 1
+	fi
+
+	if [[ -n "$MAC_FILTER" ]]; then
+		if [[ $MAC_FILTER != 0 && $MAC_FILTER != 1 ]]; then
+			fatal "MAC-filter can be 0 for blacklisting or 1 for whitelisting"
+			exit 1
+		fi
+	fi
+}

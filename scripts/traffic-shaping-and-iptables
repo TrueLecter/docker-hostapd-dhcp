@@ -1,0 +1,134 @@
+#!/bin/bash
+# TODO parameters matching instead of order matching
+# TODO custom subnets next address calculation
+# TODO speed settings in cli
+
+# https://gist.github.com/jjarmoc/1299906
+atoi () {
+	#Returns the integer representation of an IP arg, passed in ascii dotted-decimal notation (x.x.x.x)
+	IP=$1; IPNUM=0
+	for (( i=0 ; i<4 ; ++i )); do
+	((IPNUM+=${IP%%.*}*$((256**$((3-${i}))))))
+	IP=${IP#*.}
+	done
+	echo "$IPNUM"
+}
+
+itoa () {
+	#returns the dotted-decimal ascii form of an IP arg passed in integer format
+	echo -n $(($(($(($((${1}/256))/256))/256))%256)).
+	echo -n $(($(($((${1}/256))/256))%256)).
+	echo -n $(($((${1}/256))%256)).
+	echo $((${1}%256))
+}
+
+#10.9.0.0/20
+#gateway 10.9.0.1
+#dhcp - 10.9.0.2-10.9.9.254
+#statics 10.9.10.1-10.9.15.254
+
+DEFAULT_OUTPUTS='eth0'
+DEFAULT_SPEED='8:16'
+DEFAULT_FILENAME='/opt/hostapd/shaping.rules'
+
+MAC_LINE_REGEX='^[ \t]*[0-9a-fA-F]{2}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2}'
+SPEED_LINE_REGEX='^[0-9]+(\:[0-9]+)?$'
+
+HOST_START=$(atoi '10.9.10.1')
+
+if [ "$#" -lt "1" ]; then
+	echo "Usage: $(basename "$0") interface [output-interfaces] [default-speed] [rules-file]"
+	exit 1
+fi
+
+netcard="$1"
+
+readarray -td ',' outputs < <(printf "%s" "${2:-$DEFAULT_OUTPUTS}")
+speed=${3:-$DEFAULT_SPEED}
+filename=${4:-$DEFAULT_FILENAME}
+
+# Clear old rules
+iptables -t mangle -F shaper-out > /dev/null 2>&1
+iptables -t mangle -F shaper-in > /dev/null 2>&1
+tc qdisc del dev "$netcard" root handle 1 > /dev/null 2>&1
+
+# Create new set of rules
+tc qdisc add dev "$netcard" root handle 1:0 htb default 9999
+iptables -t mangle -N shaper-out > /dev/null 2>&1
+iptables -t mangle -N shaper-in > /dev/null 2>&1
+
+echo "#!/bin/bash" > $WORKDIR/cleanup
+echo "tc qdisc del dev \"$netcard\" root handle 1" >> $WORKDIR/cleanup
+echo "iptables -t mangle -F shaper-out" >> $WORKDIR/cleanup
+echo "iptables -t mangle -F shaper-in" >> $WORKDIR/cleanup
+
+if ! iptables -t nat -C POSTROUTING -s "$netcard" -j MASQUERADE > /dev/null 2>&1; then
+	iptables -t nat -A POSTROUTING -s 10.9.0.0/20 -j MASQUERADE > /dev/null 2>&1
+	echo "iptables -t nat -D POSTROUTING -s 10.9.0.0/20 -j MASQUERADE" >> $WORKDIR/cleanup
+fi
+
+# Create required policies for input interface
+if ! iptables -t mangle -C POSTROUTING -o "$netcard" -j shaper-in > /dev/null 2>&1; then
+	iptables -t mangle -I POSTROUTING -o "$netcard" -j shaper-in
+	echo "iptables -t mangle -D POSTROUTING -o \"$netcard\" -j shaper-in" >> $WORKDIR/cleanup
+fi
+if ! iptables -t mangle -C PREROUTING -i "$netcard" -j shaper-out > /dev/null 2>&1; then
+	iptables -t mangle -I PREROUTING -i "$netcard" -j shaper-out
+	echo "iptables -t mangle -D PREROUTING -i \"$netcard\" -j shaper-out" >> $WORKDIR/cleanup
+fi
+
+# Create required policies for all output interfaces
+# MAYBE add default routes in said order
+for int in "${outputs[@]}"
+do
+	if ! iptables -t mangle -C PREROUTING -i "$int" -j shaper-in > /dev/null 2>&1; then
+		iptables -t mangle -I PREROUTING -i "$int" -j shaper-in
+	fi
+	if ! iptables -t mangle -C POSTROUTING -o "$int" -j shaper-out > /dev/null 2>&1; then
+		iptables -t mangle -I POSTROUTING -o "$int" -j shaper-out
+	fi
+done
+
+# Default shaping policy
+readarray -td ':' default_rule < <(printf "%s" "$speed")
+tc class add dev "$netcard" parent 1:0 classid 1:9999 htb rate "${default_rule[0]}"Mbit ceil "${default_rule[1]}"Mbit prio 0
+
+if [ ! -f "$filename" ]; then
+	exit 0
+fi
+
+class_id=1
+start_ip=$HOST_START
+declare -A generated_ips
+
+while read line; do
+	if [[ "$line" =~ $MAC_LINE_REGEX ]]; then
+		mac=$(echo "$line" | sed 's/\s+//g')
+		ip=$(itoa "$start_ip")
+		generated_ips[$mac]="$ip"
+
+		if ! iptables -t mangle -C shaper-out -s "$ip" -j MARK --set-mark $class_id > /dev/null 2>&1; then
+			iptables -t mangle -A shaper-out -s "$ip" -j MARK --set-mark $class_id
+		fi
+		if ! iptables -t mangle -C shaper-in -d "$ip" -j MARK --set-mark $class_id > /dev/null 2>&1; then
+			iptables -t mangle -A shaper-in -d "$ip" -j MARK --set-mark $class_id
+		fi
+
+		start_ip=$(($start_ip + 1))
+	elif [[ "$line" =~ $SPEED_LINE_REGEX ]]; then
+		class_id=$(($class_id + 1))
+		no_whitespaces_line=$(echo "$line" | sed 's/\s+//g')
+
+		readarray -td ':' speed < <(printf "%s" "$no_whitespaces_line")
+
+		rate=${speed[0]}
+		ceil=${speed[1]:-$rate}
+
+		tc class add dev "$netcard" parent 1:1 classid 1:"$class_id" htb rate "$rate"Mbit ceil "$ceil"Mbit prio 1
+		tc filter add dev "$netcard" parent 1:0 prio 1 handle "$class_id" fw flowid 1:"$class_id"
+	else
+		echo "Ignoring '$line'..."
+	fi
+done < "$filename"
+
+for mac in "${!generated_ips[@]}"; do printf "%s %s\n" "$mac" "${generated_ips[$mac]}" ; done

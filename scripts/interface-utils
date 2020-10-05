@@ -1,0 +1,52 @@
+#!/bin/bash
+source ./logging
+
+remove_interface_ip () {
+    ip address flush $1
+}
+
+stop_interface () {
+    ip link set $1 down
+}
+
+start_interface () {
+    ip link set $1 up
+}
+
+restart_interface () {
+    stop_interface $1
+    start_interface $1
+}
+
+check_interfaces () {
+    ip address show "$1" > /dev/null 2>&1 || return 1
+
+    readarray -td ',' ints < <(printf "%s" "$2")
+
+    for int in "${ints[@]}"
+    do
+        ip address show "$int" > /dev/null 2>&1 || return 1
+    done
+
+    return 0
+}
+
+wait_for_interfaces () {
+    printf "${CYAN}"
+    while ! check_interfaces "$WLAN" "$TARGET"; do
+        printf '.'
+        sleep 1
+    done
+    printf "${NOCOLOR}\n"
+}
+
+is_wifi_interface () {
+    [[ -d "/sys/class/net/$1/wireless/" ]] && return 0
+    return 1
+}
+
+can_be_ap () {
+    # TODO implement
+    warn "can_be_ap is stub for now and is needed to be implemented"
+    return 0
+}

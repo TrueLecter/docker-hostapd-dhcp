@@ -1,0 +1,81 @@
+#!/bin/bash
+# TODO Add custom options support for dhcpd and hostapd
+# TODO Actually make hostapd with noscan patch
+# MAYBE Rewrite everything in go or something similar for cimplicity
+
+source ./logging
+source ./interface-utils
+
+source ./input/commandline
+source ./input/check
+source ./input/defaults
+source ./input/env
+source ./input/file
+
+source ./config/dhcp
+source ./config/hostapd
+
+export LC_ALL=C
+export WORKDIR='/opt/hostapd/files'
+CONFIG_FILE='/var/conf/apmanager.config'
+
+HOSTAPD_LOG='/var/log/hostapd.log'
+DHCPD_LOG='/var/log/dhcpd.log'
+DHCPD_ERROR_LOG='/var/log/dhcpd.err'
+
+usage () {
+    echo "Usage:"
+    echo "     --help     Display this help and exit"
+    echo "  -w --wlan     Set wireless device. Default: $WLAN"
+    echo "  -t --target   Set command-separated gateway devices. Default: $TARGET"
+}
+
+cleanup () {
+	kill $dhcpd_pid $hostapd_pid &> /dev/null
+    remove_interface_ip $WLAN
+    stop_interface $WLAN
+}
+
+sigterm_handler () {
+    info "$Caught SIGTERM/SIGINT!"
+    cleanup
+    exit 0
+}
+
+parse_defaults
+parse_file "$CONFIG_FILE"
+parse_env
+parse_commandline
+check_config
+
+mkdir -p "$WORKDIR"
+
+trap 'sigterm_handler' TERM INT
+
+info "Waiting for interfaces to appear"
+wait_for_interfaces
+
+# TODO convert to function
+info "Creating iptables rules"
+dhcp_leases=$(./traffic-shaping-and-iptables "$WLAN" "$TARGET")
+
+info "Creating dhcpd config"
+build_dhcp_config $dhcp_leases
+
+info "Creating hostapd config"
+build_hostapd_config
+
+info "Configuring $WLAN"
+restart_interface $WLAN
+ip address replace 10.9.0.1/20 dev $WLAN
+
+info "Configuration successful! Services will start now"
+
+dhcpd -f -4 -cf "$WORKDIR/dhcpd.conf" "$WLAN" &
+dhcpd_pid=$!
+hostapd -t -f "$HOSTAPD_LOG" "$WORKDIR/hostapd.conf" &
+hostapd_pid=$!
+
+wait $hostapd_pid $dhcpd_pid
+
+cleanup

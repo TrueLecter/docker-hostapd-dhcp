@@ -1,0 +1,115 @@
+#!/bin/bash
+
+parse_commandline () {
+
+PROGNAME="$(basename $0)"
+GETOPT_ARGS=$(getopt -o hdnc:w:o: -l "output","wlan","wpa","help","hidden","hostapd-debug:","redirect-to-localhost","mac-filter","mac-filter-accept:","isolate-clients","ieee80211n","ieee80211ac","ht_capab:","vht_capab:","driver:","country:","freq-band:","mac:","dns:","psk","no-scan" -n "$PROGNAME" -- "$@")
+[[ $? -ne 0 ]] && exit 1
+eval set -- "$GETOPT_ARGS"
+
+while :; do
+    case "$1" in
+        -h|--help)
+            usage
+            exit 0
+            ;;
+        -c)
+            shift
+            CHANNEL="$1"
+            ;;
+        -d)
+            ETC_HOSTS=1
+            ;;
+        -n)
+            TARGET=
+            ;;
+        -w|--wlan)
+            shift
+            WLAN="$1"
+            ;;
+        -o|--output)
+            shift
+            TARGET="$1"
+            ;;
+        --hidden)
+            HIDDEN=1
+            ;;
+        --mac-filter)
+            MAC_FILTER=1
+            ;;
+        --mac-filter-accept)
+            shift
+            MAC_FILTER_ACCEPT="$1"
+            ;;
+        --isolate-clients)
+            ISOLATE_CLIENTS=1
+            ;;
+        --wpa)
+            shift
+            WPA_VERSION="$1"
+            [[ "$WPA_VERSION" == "2+1" ]] && WPA_VERSION=1+2
+            ;;
+        --ieee80211n)
+            IEEE80211N=1
+            ;;
+        --ieee80211ac)
+            IEEE80211AC=1
+            ;;
+        --ht_capab)
+            shift
+            HT_CAPAB="$1"
+            ;;
+        --vht_capab)
+            shift
+            VHT_CAPAB="$1"
+            ;;
+        --driver)
+            shift
+            DRIVER="$1"
+            ;;
+        --country)
+            shift
+            COUNTRY="$1"
+            ;;
+        --freq-band)
+            shift
+            FREQ_BAND="$1"
+            FREQ_BAND_SET=1
+            ;;
+        --mac)
+            shift
+            NEW_MACADDR="$1"
+            ;;
+        --dns)
+            shift
+            DNS_SERVER="$1"
+            ;;
+        --psk)
+            USE_PSK=1
+            ;;
+        --no-scan)
+            NOSCAN=1
+            ;;
+        --redirect-to-localhost)
+            REDIRECT_TO_LOCALHOST=1
+            ;;
+        --hostapd-debug)
+            shift
+            if [ "x$1" = "x1" ]; then
+                HOSTAPD_DEBUG_ARGS="-d"
+            elif [ "x$1" = "x2" ]; then
+                HOSTAPD_DEBUG_ARGS="-dd"
+            else
+                printf "Error: argument for --hostapd-debug expected 1 or 2, got %s\n" "$1"
+                exit 1
+            fi
+            ;;
+        --)
+            break
+            ;;
+    esac
+
+    shift
+done
+
+}
