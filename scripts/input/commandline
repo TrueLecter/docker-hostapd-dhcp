@@ -1,11 +1,14 @@
 #!/bin/bash
 
 parse_commandline () {
+verbose "Reading variables from commandline"
 
 PROGNAME="$(basename $0)"
 GETOPT_ARGS=$(getopt -o hdnc:w:o: -l "output","wlan","wpa","help","hidden","hostapd-debug:","redirect-to-localhost","mac-filter","mac-filter-accept:","isolate-clients","ieee80211n","ieee80211ac","ht_capab:","vht_capab:","driver:","country:","freq-band:","mac:","dns:","psk","no-scan" -n "$PROGNAME" -- "$@")
 [[ $? -ne 0 ]] && exit 1
 eval set -- "$GETOPT_ARGS"
+
+verbose "Setting available options from commandline"
 
 while :; do
     case "$1" in
@@ -100,7 +103,7 @@ while :; do
             elif [ "x$1" = "x2" ]; then
                 HOSTAPD_DEBUG_ARGS="-dd"
             else
-                printf "Error: argument for --hostapd-debug expected 1 or 2, got %s\n" "$1"
+                fatal "Error: argument for --hostapd-debug expected 1 or 2, got $1"
                 exit 1
             fi
             ;;

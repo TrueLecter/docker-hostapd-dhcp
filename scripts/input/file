@@ -3,6 +3,9 @@
 
 parse_file () {
 	if [[ -f "$1" ]]; then
+		verbose "Reading variables from files"
 		source "$1"
+	else
+		verbose "No file to read config from"
 	fi
 }

@@ -2,6 +2,8 @@
 
 parse_env () {
 
+verbose "Setting values from environment"
+
 CHANNEL=${AP_CHANNEL:=$CHANNEL}
 WPA_VERSION=${AP_WPA_VERSION:=$WPA_VERSION}
 DNS_SERVER=${AP_DNS_SERVER:=$DNS_SERVER}

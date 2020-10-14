@@ -2,6 +2,8 @@
 
 parse_defaults () {
 
+verbose "Setting default variables values"
+
 WLAN=wlan0
 TARGET=eth0
 SSID=ap

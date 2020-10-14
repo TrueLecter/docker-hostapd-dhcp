@@ -11,6 +11,7 @@ ctrl_interface=/var/run/hostapd/ctrl
 ctrl_interface_group=0
 ignore_broadcast_ssid=$HIDDEN
 ap_isolate=$ISOLATE_CLIENTS
+noscan=$NOSCAN
 EOF
 
 	mkdir -p /var/run/hostapd/ctrl
