@@ -29,7 +29,6 @@ RUN apt update \
     && mkdir -p /var/lib/dhcp/ \
     && touch /var/lib/dhcp/dhcpd.leases
 
-COPY --from=builder /build/wpa-2.7+git20190128+0c1e29f/ /src/hostapd/
 COPY --from=builder /build/hostapd_2.7* /opt/hostapd/
 
 RUN dpkg -i *.deb
