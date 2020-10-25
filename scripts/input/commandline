@@ -4,7 +4,7 @@ parse_commandline () {
 verbose "Reading variables from commandline"
 
 PROGNAME="$(basename $0)"
-GETOPT_ARGS=$(getopt -o hdnc:w:o: -l "output","wlan","wpa","help","hidden","hostapd-debug:","redirect-to-localhost","mac-filter","mac-filter-accept:","isolate-clients","ieee80211n","ieee80211ac","ht_capab:","vht_capab:","driver:","country:","freq-band:","mac:","dns:","psk","no-scan" -n "$PROGNAME" -- "$@")
+GETOPT_ARGS=$(getopt -o hdnc:w:o: -l "output","wlan","wpa","help","hidden","hostapd-debug:","redirect-to-localhost","mac-filter","mac-filter-accept:","isolate-clients","ieee80211n","ieee80211ac","ht_capab:","vht_capab:","driver:","country:","freq-band:","mac:","dns:","psk","no-scan","ssid:","pass:" -n "$PROGNAME" -- "$@")
 [[ $? -ne 0 ]] && exit 1
 eval set -- "$GETOPT_ARGS"
 
@@ -25,6 +25,14 @@ while :; do
             ;;
         -n)
             TARGET=
+            ;;
+        --pass)
+            shift
+            PASSPHRASE="$1"
+            ;;
+        --ssid)
+            shift
+            SSID="$1"
             ;;
         -w|--wlan)
             shift
