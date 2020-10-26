@@ -67,7 +67,7 @@ EOF
 	    else
 	        WPA_KEY_TYPE=psk
 	    fi
-	    cat << EOF >> $CONFDIR/hostapd.conf
+	    cat << EOF >> $WORKDIR/hostapd.conf
 wpa=${WPA_VERSION}
 wpa_${WPA_KEY_TYPE}=${PASSPHRASE}
 wpa_key_mgmt=WPA-PSK
