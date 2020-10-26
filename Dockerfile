@@ -19,7 +19,6 @@ RUN echo "2020-09/0001-noscan.patch" >> /build/wpa-2.7+git20190128+0c1e29f/debia
 RUN dch -i -m "No scan patch a.k.a force 40MHz"
 RUN debuild -uc -us -b
 
-
 FROM debian:buster-slim
 WORKDIR /opt/hostapd/
 
@@ -35,5 +34,6 @@ RUN dpkg -i *.deb
 RUN rm *.deb
 
 COPY scripts/ /opt/hostapd/
+RUN chmod +x /opt/hostapd/apmanager
 
 ENTRYPOINT ["/opt/hostapd/apmanager"]
