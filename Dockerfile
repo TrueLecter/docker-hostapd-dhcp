@@ -34,6 +34,6 @@ RUN dpkg -i *.deb
 RUN rm *.deb
 
 COPY scripts/ /opt/hostapd/
-RUN chmod +x /opt/hostapd/apmanager
+RUN chmod -R 755 /opt/hostapd/
 
 ENTRYPOINT ["/opt/hostapd/apmanager"]
