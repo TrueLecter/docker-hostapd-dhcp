@@ -13,14 +13,17 @@ subnet 10.9.0.0 netmask 255.255.240.0 {
 EOF
 
 	local host_id=1
-    while read ip_mac; do
-        if [[ "$ip_mac" =~ ^([[:space:]]+)$ ]]; then
+    while read mac_ip; do
+        if [[ "$mac_ip" =~ ^([[:space:]]+)$ ]]; then
+            warn "Ignoring $mac_ip"
             continue;
         fi
-        read -r ip mac <<<$(echo "$ip_mac")
+        read -r mac ip <<<$(echo "$mac_ip")
+        verbose "Adding fixed lease $mac -> $ip"
+
         echo -e "host host$host_id {\n\thardware ethernet $mac;\n\tfixed-address $ip;\n}" >> $WORKDIR/dhcpd.conf
         host_id=$(($host_id + 1))
-    done < <(printf '%s' "$1")
+    done <<< "$1"
 
     echo "}" >> $WORKDIR/dhcpd.conf
 }

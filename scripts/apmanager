@@ -61,7 +61,7 @@ info "Creating iptables rules"
 dhcp_leases=$(./traffic-shaping-and-iptables "$WLAN" "$TARGET")
 
 info "Creating dhcpd config"
-build_dhcp_config $dhcp_leases
+build_dhcp_config "$dhcp_leases"
 
 info "Creating hostapd config"
 build_hostapd_config
