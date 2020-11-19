@@ -61,7 +61,9 @@ EOF
 	fi
 
 	if [[ -n "$PASSPHRASE" ]]; then
-	    [[ "$WPA_VERSION" == "1+2" ]] && WPA_VERSION=3
+		if [[ "$WPA_VERSION" == "2+1" || "$WPA_VERSION" == "1+2" ]]; then
+			WPA_VERSION=3
+		fi
 	    if [[ $USE_PSK -eq 0 ]]; then
 	        WPA_KEY_TYPE=passphrase
 	    else

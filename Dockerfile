@@ -36,4 +36,4 @@ RUN rm *.deb
 COPY scripts/ /opt/hostapd/
 RUN chmod -R 755 /opt/hostapd/
 
-ENTRYPOINT ["/opt/hostapd/apmanager"]
+ENTRYPOINT ["/bin/bash", "/opt/hostapd/apmanager"]
